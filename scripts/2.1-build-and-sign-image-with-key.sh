@@ -23,7 +23,7 @@ popd
 sleep 2
 
 # Sign the demo image. This is based on https://github.com/sigstore/cosign 
-cosign generate-key-pair
+bin/cosign generate-key-pair
 
 bin/cosign sign \
   -key cosign.key \
