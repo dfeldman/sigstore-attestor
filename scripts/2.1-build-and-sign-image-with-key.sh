@@ -22,6 +22,7 @@ popd
 
 sleep 2
 
+rm cosign.key cosign.pub
 # Sign the demo image. This is based on https://github.com/sigstore/cosign 
 bin/cosign generate-key-pair
 
