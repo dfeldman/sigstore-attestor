@@ -6,6 +6,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os/exec"
@@ -150,7 +151,7 @@ func (p *Plugin) getSelectorValuesFromCosign(cfg *container.Config) []string {
 	docker_full_path := registry + "/" + cfg.Image
 	cmd := exec.Command("/home/dfeldman/work/sigstore-attestor/bin/cosign", "verify", docker_full_path)
 	cmd.Env = append(cmd.Env, "COSIGN_EXPERIMENTAL=1")
-	stdout, err := cmd.CombinedOutput()
+	stdout, err := cmd.Output()
 
 	if err != nil {
 		p.log.Error("Can't run cosign", "error", hclog.Fmt("%v", string(stdout)))
@@ -158,31 +159,42 @@ func (p *Plugin) getSelectorValuesFromCosign(cfg *container.Config) []string {
 
 	p.log.Info(string(stdout))
 
-	parsedOutput, err := p.cosignOutputToSubject(string(stdout))
+	parsedOutput, err := p.cosignOutputToSubject(stdout)
 	if err == nil {
 		selectorValues = append(selectorValues, parsedOutput)
 	}
+
 	return selectorValues
 }
 
-func (p *Plugin) cosignOutputToSubject(output string) (string, error) {
-	
+type CosignOutputItem struct {
+	Optional CosignOptionalItem `json:"optional"`
 }
 
-// func getSelectorValuesFromConfig(cfg *container.Config) []string {
-// 	var selectorValues []string
-// 	for label, value := range cfg.Labels {
-// 		selectorValues = append(selectorValues, fmt.Sprintf("%s:%s:%s", subselectorLabel, label, value))
-// 	}
-// 	for _, e := range cfg.Env {
-// 		selectorValues = append(selectorValues, fmt.Sprintf("%s:%s", subselectorEnv, e))
-// 	}
-// 	if cfg.Image != "" {
-// 		selectorValues = append(selectorValues, fmt.Sprintf("%s:%s", subselectorImageID, cfg.Image))
+type CosignOptionalItem struct {
+	Subject []string `json:"subject"`
+}
 
-// 	}
-// 	return selectorValues
-// }
+func (p *Plugin) cosignOutputToSubject(output []byte) (string, error) {
+	var cosignOutputParsed []CosignOutputItem
+	err := json.Unmarshal(output, &cosignOutputParsed)
+	p.log.Info("cosign output", "out", string(output))
+	if err != nil {
+		p.log.Error("Error parsing cosign output", "err", err)
+		return "", nil
+	}
+	p.log.Info("Parsed output", "out", cosignOutputParsed)
+	if len(cosignOutputParsed) == 0 {
+		p.log.Error("Cosign did not return a valid output signature")
+		return "", nil
+	}
+	if len(cosignOutputParsed[0].Optional.Subject) == 0 {
+		p.log.Error("Cosign did not return a signature subject")
+		return "", nil
+	}
+	p.log.Info("Identified subject from sigstore", "subj", cosignOutputParsed[0].Optional.Subject[0])
+	return "subject:" + cosignOutputParsed[0].Optional.Subject[0], nil
+}
 
 func (p *Plugin) Configure(ctx context.Context, req *configv1.ConfigureRequest) (*configv1.ConfigureResponse, error) {
 	var err error

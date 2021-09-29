@@ -1,1 +1,2 @@
-DOCKER_USER=
+DOCKER_USER=dfeldman
+SIGSTORE_SUBJECT=dfeldman.mn@gmail.com

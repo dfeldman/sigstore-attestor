@@ -11,3 +11,7 @@ source ./env
 if [ ! -n "${DOCKER_USER}" ]; then
 	echo "Need to set DOCKER_USER to a valid value"
 fi
+
+if [ ! -n "${SIGSTORE_SUBJECT}"]; then
+	echo "Need to set SIGSTORE_SUBJECT to a valid value (typically your email address"
+fi

@@ -47,3 +47,11 @@ echo "Starting spire agent with new join token ${join_token}"
 bin/spire-agent run -joinToken ${join_token} -config conf/agent.conf > log/agent.log &
 
 echo $! > tmp/spire-agent.pid
+
+# Create the needed registration entry
+bin/spire-server entry create \
+	-spiffeID spiffe://example.org/testWorkload \
+	-parentID spiffe://example.org/localNode \
+	-selector sigstoreattestor:subject:${SIGSTORE_SUBJECT} \
+	-socketPath sock/server.sock
+
