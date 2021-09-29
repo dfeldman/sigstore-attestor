@@ -21,6 +21,7 @@ go build ./...
 popd
 cp src/sigstoreattestor/sigstoreattestor bin/sigstoreattestor
 
+rm -r ${BASEDIR}/data || echo "Unable to remove old data"
 
 # Start up spire-server with conf from conf dir
 bin/spire-server run -config conf/server.conf > log/server.log &
