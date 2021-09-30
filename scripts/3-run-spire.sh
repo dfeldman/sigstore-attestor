@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -xeo pipefail
 SCRIPTDIR=$(dirname "$0")
-BASEDIR="$SCRIPTDIR/.."
-source $BASEDIR/env
+BASEDIR="${SCRIPTDIR}/.."
+source ${BASEDIR}/env
 
 pushd ${BASEDIR}
 if [[ -f tmp/spire-server.pid ]]; then
@@ -38,7 +38,7 @@ then
         join_token="${BASH_REMATCH[1]}"
         echo $join_token
 else
-        echo "Unexpected output from \"spire-server token generate\": $join_token_output"
+        echo "Unexpected output from \"spire-server token generate\": ${join_token_output}"
 	exit 1
 fi
 

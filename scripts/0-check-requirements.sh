@@ -1,7 +1,7 @@
 #!/usr/bin/env bash 
 set -xeo pipefail
 SCRIPTDIR=$(dirname "$0")
-BASEDIR="$SCRIPTDIR/.."
+BASEDIR="${SCRIPTDIR}/.."
 
 command -v docker || exit "Docker not found"
 command -v go || exit "Go not found"

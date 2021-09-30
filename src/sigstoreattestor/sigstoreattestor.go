@@ -50,6 +50,9 @@ type Plugin struct {
 	mtx               sync.RWMutex
 	containerIDFinder cgroup.ContainerIDFinder
 	docker            Docker
+
+	pathToCosign string
+	registry     string
 }
 
 // unused
@@ -69,9 +72,9 @@ type dockerPluginConfig struct {
 	// See the documentation for cgroup.NewContainerIDFinder in the cgroup subpackage for more information.
 	ContainerIDCGroupMatchers []string `hcl:"container_id_cgroup_matchers"`
 
-	Registry string `hcl:docker_registry`
+	Registry string `hcl:"docker_registry"`
 
-	PathToCosign string `hcl:path_to_cosign`
+	PathToCosign string `hcl:"path_to_cosign"`
 }
 
 func (p *Plugin) SetLogger(log hclog.Logger) {
@@ -82,22 +85,10 @@ func (p *Plugin) Attest(ctx context.Context, req *workloadattestorv1.AttestReque
 	p.mtx.RLock()
 	defer p.mtx.RUnlock()
 
-	if p.containerIDFinder == nil {
-		p.log.Info("Refusing to attest becuase Configure never called")
-		return nil, nil
-	}
-	p.log.Info("DJF It's logging! %i ", req.Pid)
-	if req == nil {
-		p.log.Info("request is nil")
-	}
-	if p.fs == nil {
-		p.log.Info("fs is nil")
-	}
 	cgroupList, err := cgroups.GetCgroups(req.Pid, cgroups.OSFileSystem{})
 	if err != nil {
 		return nil, err
 	}
-	p.log.Info("DJF 2")
 
 	containerID, err := getContainerIDFromCGroups(p.containerIDFinder, cgroupList)
 	switch {
@@ -109,7 +100,6 @@ func (p *Plugin) Attest(ctx context.Context, req *workloadattestorv1.AttestReque
 		// Not a docker workload. Nothing more to do.
 		return &workloadattestorv1.AttestResponse{}, nil
 	}
-	p.log.Info("DJF 3")
 
 	if p.retryer == nil {
 		p.log.Error("Retryer is nil")
@@ -128,12 +118,11 @@ func (p *Plugin) Attest(ctx context.Context, req *workloadattestorv1.AttestReque
 		p.log.Error("Retry")
 		return nil
 	})
-	p.log.Info("DJF 4")
 
 	if err != nil {
 		return nil, err
 	}
-	p.log.Info("DJF HEY the image name is %v", container.Config.Image)
+	p.log.Info("Identified image name for workload", "imageName", container.Config.Image)
 	return &workloadattestorv1.AttestResponse{
 		SelectorValues: p.getSelectorValuesFromCosign(container.Config),
 	}, nil
@@ -147,9 +136,9 @@ func (p *Plugin) getSelectorValuesFromCosign(cfg *container.Config) []string {
 		selectorValues = append(selectorValues, fmt.Sprintf("%s:%s", subselectorImageID, cfg.Image))
 	}
 
-	registry := "docker.io"
-	docker_full_path := registry + "/" + cfg.Image
-	cmd := exec.Command("/home/dfeldman/work/sigstore-attestor/bin/cosign", "verify", docker_full_path)
+	docker_full_path := p.registry + "/" + cfg.Image
+	p.log.Info("registry", "r", docker_full_path)
+	cmd := exec.Command(p.pathToCosign, "verify", docker_full_path)
 	cmd.Env = append(cmd.Env, "COSIGN_EXPERIMENTAL=1")
 	stdout, err := cmd.Output()
 
@@ -178,7 +167,6 @@ type CosignOptionalItem struct {
 func (p *Plugin) cosignOutputToSubject(output []byte) (string, error) {
 	var cosignOutputParsed []CosignOutputItem
 	err := json.Unmarshal(output, &cosignOutputParsed)
-	p.log.Info("cosign output", "out", string(output))
 	if err != nil {
 		p.log.Error("Error parsing cosign output", "err", err)
 		return "", nil
@@ -198,7 +186,6 @@ func (p *Plugin) cosignOutputToSubject(output []byte) (string, error) {
 
 func (p *Plugin) Configure(ctx context.Context, req *configv1.ConfigureRequest) (*configv1.ConfigureResponse, error) {
 	var err error
-	p.log.Info("DJF CONFIGURATION")
 
 	config := &dockerPluginConfig{}
 	if err = hcl.Decode(config, req.HclConfiguration); err != nil {
@@ -234,7 +221,8 @@ func (p *Plugin) Configure(ctx context.Context, req *configv1.ConfigureRequest) 
 	p.docker = docker
 	p.containerIDFinder = containerIDFinder
 	p.retryer = newRetryer()
-
+	p.pathToCosign = config.PathToCosign
+	p.registry = config.Registry
 	return &configv1.ConfigureResponse{}, nil
 }
 

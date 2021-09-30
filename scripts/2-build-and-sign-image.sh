@@ -1,13 +1,13 @@
 #!/usr/bin/env bash 
 set -xeo pipefail
 SCRIPTDIR=$(dirname "$0")
-BASEDIR="$SCRIPTDIR/.."
-source $BASEDIR/env
+BASEDIR="${SCRIPTDIR}/.."
+source ${BASEDIR}/env
 
 # Remove any old demo image
 docker rmi demo-image || echo "Couldn't remove old image"
 
-pushd "$BASEDIR/demo-image"
+pushd "${BASEDIR}/demo-image"
 
 # Put the latest date into the demo image in order to force signature update
 echo $(date) >  date

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -xeo pipefail
 SCRIPTDIR=$(dirname "$0")
-BASEDIR="$SCRIPTDIR/.."
-source $BASEDIR/env
+BASEDIR="${SCRIPTDIR}/.."
+source ${BASEDIR}/env
 
 pushd ${BASEDIR}
 if [[ -f tmp/spire-server.pid ]]; then
